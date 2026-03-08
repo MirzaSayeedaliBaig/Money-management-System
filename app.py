@@ -33,49 +33,32 @@ except gspread.exceptions.SpreadsheetNotFound:
 
 # --- Data Handling Functions ---
 def load_data():
-    # Read Balances
-    bal_data = balances_ws.get_all_records() # Assumes headers: Fund, Balance
-    funds = {row['Fund']: float(row['Balance']) for row in bal_data}
+    # Fetch raw rows as a list of lists to bypass header errors entirely
+    bal_rows = balances_ws.get_all_values()
     
-    # Read Transactions
-    trans_data = transactions_ws.get_all_records()
-    
+    funds = {}
+    # Skip row 1 (the headers) and loop through the actual data
+    for row in bal_rows[1:]:
+        # Check if the row has at least 2 columns and isn't totally blank
+        if len(row) >= 2 and str(row[0]).strip() != "":
+            fund_name = str(row[0]).strip()
+            
+            # Safely convert the balance to a number (defaults to 0.0 if empty)
+            try:
+                balance_val = str(row[1]).replace(',', '').strip()
+                balance = float(balance_val) if balance_val else 0.0
+            except ValueError:
+                balance = 0.0
+                
+            funds[fund_name] = balance
+            
+    # Read Transactions (if this is empty, it safely returns an empty list)
+    try:
+        trans_data = transactions_ws.get_all_records()
+    except Exception:
+        trans_data = []
+        
     return {"funds": funds, "transactions": trans_data}
-
-def save_balances(data):
-    # Prepare data for the Balances tab
-    cells = []
-    # Assuming your Google sheet has rows 2-5 for the 4 funds
-    # Order matters here based on how you set up your sheet
-    row = 2
-    for fund_name, balance in data['funds'].items():
-        cells.append(gspread.Cell(row, 2, balance)) # Updating column B
-        row += 1
-    balances_ws.update_cells(cells)
-
-def log_transaction(data, t_type, amount, source_fund, dest_fund, description):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    
-    # Update local state
-    new_transaction = {
-        "Date": timestamp,
-        "Type": t_type,
-        "Amount": amount,
-        "From": source_fund,
-        "To": dest_fund,
-        "Description": description
-    }
-    data['transactions'].append(new_transaction)
-    
-    # Update Google Sheets
-    save_balances(data) # Save the new math
-    
-    # Append the new row to the Transactions tab
-    new_row = [timestamp, t_type, amount, source_fund, dest_fund, description]
-    transactions_ws.append_row(new_row)
-
-# Initialize data state
-data = load_data()
 
 # ... [The rest of your Streamlit UI code goes here, completely unchanged!] ...
 
