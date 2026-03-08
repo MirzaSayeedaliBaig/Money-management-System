@@ -21,10 +21,10 @@ def get_gspread_client():
 
 client = get_gspread_client()
 
-# Open your specific Google Sheet (make sure the name matches exactly)
-SHEET_NAME = "WealthManagerDB"
+# Open your specific Google Sheet using the exact ID
+SHEET_KEY = "1CZ8TuICOL-whIeh7UTdfjIX_XG6RZ_SCdIPKz0TkAc8"
 try:
-    sheet = client.open(SHEET_NAME)
+    sheet = client.open_by_key(SHEET_KEY)
     balances_ws = sheet.worksheet("Balances")
     transactions_ws = sheet.worksheet("Transactions")
 except gspread.exceptions.SpreadsheetNotFound:
