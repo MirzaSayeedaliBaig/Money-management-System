@@ -9,7 +9,6 @@ st.set_page_config(page_title="Personal Wealth Manager", layout="wide")
 # --- Google Sheets Connection ---
 @st.cache_resource
 def get_gspread_client():
-    # This securely loads your credentials from Streamlit Secrets
     credentials = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
         scopes=[
@@ -28,7 +27,7 @@ try:
     balances_ws = sheet.worksheet("Balances")
     transactions_ws = sheet.worksheet("Transactions")
 except gspread.exceptions.SpreadsheetNotFound:
-    st.error(f"Could not find the Google Sheet named '{SHEET_NAME}'. Did you share it with the service account email?")
+    st.error("Could not find the Google Sheet. Did you share it with the service account email?")
     st.stop()
 
 # --- Data Handling Functions ---
@@ -47,7 +46,6 @@ def load_data():
             funds[fund_name] = balance
             
     # --- THE SAFETY NET ---
-    # This guarantees the dashboard always has the exact keys it needs
     required_funds = ["Main Vault", "Fixed Expense", "Monthly Allowance", "Emergency Fund"]
     for req_fund in required_funds:
         if req_fund not in funds:
@@ -60,7 +58,39 @@ def load_data():
         
     return {"funds": funds, "transactions": trans_data}
 
-# ... [The rest of your Streamlit UI code goes here, completely unchanged!] ...
+def save_balances(data):
+    # This writes your new balances back to the Google Sheet
+    cells = []
+    row = 2
+    for fund_name, balance in data['funds'].items():
+        cells.append(gspread.Cell(row, 1, fund_name)) # Column A
+        cells.append(gspread.Cell(row, 2, balance))   # Column B
+        row += 1
+    balances_ws.update_cells(cells)
+
+def log_transaction(data, t_type, amount, source_fund, dest_fund, description):
+    # This updates your local dashboard and writes to the Google Sheet
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    # Update local state
+    new_transaction = {
+        "Date": timestamp,
+        "Type": t_type,
+        "Amount": amount,
+        "From": source_fund,
+        "To": dest_fund,
+        "Description": description
+    }
+    data['transactions'].append(new_transaction)
+    
+    # Update Google Sheets
+    save_balances(data) 
+    new_row = [timestamp, t_type, amount, source_fund, dest_fund, description]
+    transactions_ws.append_row(new_row)
+
+# --- INITIALIZE DATA ---
+# This was missing! It actually runs the function to load your data
+data = load_data()
 
 # --- UI Header & Sidebar (Dashboard) ---
 st.title("📊 Nightly Financial Tracker")
