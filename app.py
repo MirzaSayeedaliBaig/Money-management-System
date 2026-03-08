@@ -33,26 +33,26 @@ except gspread.exceptions.SpreadsheetNotFound:
 
 # --- Data Handling Functions ---
 def load_data():
-    # Fetch raw rows as a list of lists to bypass header errors entirely
     bal_rows = balances_ws.get_all_values()
     
     funds = {}
-    # Skip row 1 (the headers) and loop through the actual data
     for row in bal_rows[1:]:
-        # Check if the row has at least 2 columns and isn't totally blank
         if len(row) >= 2 and str(row[0]).strip() != "":
             fund_name = str(row[0]).strip()
-            
-            # Safely convert the balance to a number (defaults to 0.0 if empty)
             try:
                 balance_val = str(row[1]).replace(',', '').strip()
                 balance = float(balance_val) if balance_val else 0.0
             except ValueError:
                 balance = 0.0
-                
             funds[fund_name] = balance
             
-    # Read Transactions (if this is empty, it safely returns an empty list)
+    # --- THE SAFETY NET ---
+    # This guarantees the dashboard always has the exact keys it needs
+    required_funds = ["Main Vault", "Fixed Expense", "Monthly Allowance", "Emergency Fund"]
+    for req_fund in required_funds:
+        if req_fund not in funds:
+            funds[req_fund] = 0.0
+            
     try:
         trans_data = transactions_ws.get_all_records()
     except Exception:
